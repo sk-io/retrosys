@@ -1,0 +1,90 @@
+===== simple 16-bit CPU specification =====
+all registers are 16-bit.
+16 general purpose registers, 1 stack pointer, 1 program counter.
+all memory access are denoted with brackets [].
+cpu bit flags: conditional, halted, interrupt
+
+===== instruction set =====
+instructions are between 1 and 4 bytes long.
+there are 2 different groups: register ops and others
+
+--- general instructions ---
+opcode format: 0iii iiii
+
+i:
+	halt
+	nop
+	j r/w
+	jt r/w
+	jf r/w
+	call r/w
+	ret
+	inc r
+	dec r
+	shr r, b
+	shl r, b
+	ashr r, b
+	push r/w
+	pop r/w
+
+--- register operations ---
+text format: inst rdest, rsrc/byte/word
+
+opcode format: 10bb bboo
+b: base instruction type
+	set
+	add
+	addc
+	sub
+	subc
+	and
+	or
+	xor
+	cmp_e
+	cmp_ne
+	cmp_l
+	cmp_le
+	cmp_g
+	cmp_ge
+o: operand format
+	0: unused
+	1: regs byte
+	2: regs byte, arg byte
+	3: regs byte, arg word
+
+regs byte format: aaaa bbbb
+	a: destination register
+	b: source register (sometimes ignored)
+
+--- memory instructions ---
+text format: inst reg, [reg/word]
+
+opcode format: 1100 tiib
+t:
+	0: load
+	1: store
+i: // this might get removed
+	0: do nothing
+	1: post increment
+	2: post increment 2 bytes
+	3: post decrement
+b:
+	0: read/write word
+	1: read/write byte
+
+===== examples ====
+; hello world
+	set r0, 0
+	set r1, msg
+loop:
+	loadb r0, [r1]
+	cmp r0 == 0
+	jt exit
+	inc r1
+	storeb r0, [SERIAL_OUT]
+	j loop
+exit:
+	halt
+msg:
+	.db "hello world", 0
+
