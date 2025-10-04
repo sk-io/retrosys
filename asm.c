@@ -1,8 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
-
-char* input;
-size_t input_size;
+#include <stdint.h>
+#include <ctype.h>
 
 #define T_NONE    0
 #define T_IDENT   1
@@ -17,14 +16,41 @@ size_t input_size;
 typedef short token_type_t;
 
 typedef struct {
-	char* ptr;
+	char *ptr;
 	short len;
 	token_type_t type;
 } token_t;
 
-token_t* tokens;
+typedef struct {
+	token_t *name;
+	uint16_t offset;
+} label_t;
+
+char *input = NULL;
+size_t input_size = 0;
+token_t *tokens = NULL;
 int num_tokens = 0;
 int tokens_cap = 0;
+uint8_t output[0x10000];
+size_t output_size = 0;
+label_t labels[256];
+size_t num_labels = 0;
+
+#define MN_HALT 0
+#define MN_NOP  1
+#define MN_J    2
+#define MN_JT   3
+#define MN_JF   4
+#define MN_CALL 5
+
+const char *gp_instr_mnemonic[] = {
+	"halt", "nop", "j", "jt", "jf", "call", "ret",
+	"inc", "dec", "shl", "shr", "ashr", "push", "pop",
+};
+
+const char *reg_instr_mnemonics[] = {
+	"set", "add", "addc", "sub", "subc", "and", "or", "xor",
+};
 
 void add_token(token_t t) {
 	if (num_tokens >= tokens_cap) {
@@ -40,7 +66,7 @@ void add_token(token_t t) {
 
 void tokenize() {
 	token_t token;
-	char* p = input;
+	char *p = input;
 	
 	while (*p) {
 		if (isblank(*p)) {
@@ -87,12 +113,13 @@ void tokenize() {
 
 		token.len = p - token.ptr;
 		add_token(token);
-		printf("token: '%.*s' %u\n", token.len, token.ptr, token.type);
+		//printf("token: '%.*s' %u\n", token.len, token.ptr, token.type);
 	}
 }
 
 token_t end_token = {NULL, 0, T_END};
-token_t* get_token(int pos) {
+
+token_t *get_token(int pos) {
 	if (pos >= num_tokens) {
 		return &end_token;
 	}
@@ -100,28 +127,41 @@ token_t* get_token(int pos) {
 	return &tokens[pos];
 }
 
-void assemble() {
-	int pos = 0;
+int find_mnemonic_in_table(token_t *mnem, const char *table[], size_t table_size) {
+	for (int i = 0; i < table_size; i++) {
+		if (strncmp(mnem->name->ptr, table[i], mnem->name->len) == 0)
+			return i;
+	}
 
-	while (pos <= num_tokens) {
-		
-		if (get_token(0)->type == T_IDENT && get_token(1)->type == T_COLON) {
-			
+	return -1;
+}
+
+void assemble() {
+	int token = 0;
+
+	while (get_token(token)->type != T_END) {
+		if (get_token(token)->type == T_IDENT && get_token(token + 1)->type == T_COLON) {
+			label_t label;
+			label.name = get_token(token++);
+			token++;
+
+			labels[num_labels++] = label;
+			continue;
 		}
+
+		find_mnemonic_in_table(get_token(token), gp_instr_mnemonics, sizeof(gp_instr_mnemonics / 
 
 	}
 
 }
 
 int main(int argc, char** argv) {
-	FILE* file;
-	int pos;
 	if (argc <= 1) {
 		printf("usage: asm <input file>\n");
 		return 0;
 	}
 
-	file = fopen(argv[1], "r");
+	FILE *file = fopen(argv[1], "r");
 	if (!file) {
 		printf("failed to open file '%s'\n", argv[1]);
 		return 1;
@@ -139,6 +179,7 @@ int main(int argc, char** argv) {
 	printf("input: %s\n", input);
 
 	tokenize();
+	assemble();
 	
 	return 0;
 }

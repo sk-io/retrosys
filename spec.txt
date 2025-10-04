@@ -21,8 +21,8 @@ i:
 	ret
 	inc r
 	dec r
-	shr r, b
 	shl r, b
+	shr r, b
 	ashr r, b
 	push r/w
 	pop r/w
